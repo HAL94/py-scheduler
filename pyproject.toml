@@ -1,0 +1,11 @@
+[project]
+name = "py-scheduler"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.11.4",
+    "pydantic-settings>=2.9.1",
+    "redis[asyncio]>=6.1.0",
+]
