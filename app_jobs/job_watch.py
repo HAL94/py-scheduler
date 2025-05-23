@@ -23,8 +23,8 @@ class JobWatch:
         elif status == JobStatus.FAILED:
             job.failed_at = datetime.now()
 
-        await hset(f"{status}:{job.id}", job.model_dump())
-
+        await hset(job.id, job.model_dump())
+                    
     async def start(self, worker: JobWorker[Job]):
         while True:
             print("\n\nListening for jobs...\n\n")
@@ -37,8 +37,10 @@ class JobWatch:
                 print(f"\n\nAttempting task: {job.task_name}")
                 await self._update_job_status(job, JobStatus.PENDING)
                 try:
-                    await worker.processor()
+                    await worker.processor(*job.args, **job.kwargs)
+                    
                     await self._update_job_status(job, JobStatus.COMPLETED)
+                    
                 except Exception as e:
                     print(f"Failed to execute job with id: {job.id}. Message: {e}")
 
@@ -47,4 +49,8 @@ class JobWatch:
                         await self._update_job_status(job, JobStatus.FAILED)
                     else:
                         job.current_attempts += 1
+                        
+                        # exponential back off                        
+                        delay = job.current_attempts ** 2
+                        await asyncio.sleep(delay)
                         await self.queue.add_task(job)

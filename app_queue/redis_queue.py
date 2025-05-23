@@ -1,7 +1,7 @@
 from typing import Sequence
 import redis.asyncio as redis
 
-from app_jobs.job_store import JobStore
+from app_jobs.job_store import RedisJobStore
 
 from .base_queue import BaseQueue
 from redis_client import redis_client
@@ -13,7 +13,7 @@ class RedisQueue(BaseQueue[Job]):
     def __init__(self, redis_client: redis.Redis, name = "job_queue"):
         self.client = redis_client
         self.name = name
-        self.storage = JobStore[Job]()
+        self.storage = RedisJobStore(client=self.client)
         
     async def _save_job_details(self, task: Job):
         await self.storage.save_job(name=task.id, data=task)
@@ -37,7 +37,7 @@ class RedisQueue(BaseQueue[Job]):
         
         zitem: ZRangeItem = get_zrange_item(next_priority_job[0])
         
-        fetched_job: Job = await hgetall(zitem.key, Job)
+        fetched_job: Job = await self.storage.get_job(name=zitem.key)
         
         if not fetched_job:
             return None
@@ -53,7 +53,7 @@ class RedisQueue(BaseQueue[Job]):
         
         zitem: ZRangeItem = get_zrange_item(priority_job[0])
         
-        fetched_job: Job = await hgetall(zitem.key, Job)
+        fetched_job: Job = await self.storage.get_job(name=zitem.key)
         
         if not fetched_job:
             return None
@@ -70,7 +70,7 @@ class RedisQueue(BaseQueue[Job]):
         
         id = member.decode()
         
-        fetched_job: Job = await hgetall(name=id, return_model=Job)
+        fetched_job: Job = await self.storage.get_job(name=id)
         
         fetched_job.id = id
         
