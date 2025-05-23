@@ -3,7 +3,9 @@
 import abc
 from typing import Generic, Sequence, TypeVar
 
-T = TypeVar('T')
+from pydantic import BaseModel
+
+T = TypeVar('T', bound=BaseModel)
 
 class BaseQueue(abc.ABC, Generic[T]):
     """
@@ -31,6 +33,12 @@ class BaseQueue(abc.ABC, Generic[T]):
     async def pop_task(self) -> T:
         """
         Pop the next task in the queue, it will be removed
+        """
+        raise NotImplementedError
+    
+    async def wait_for_next_task(self, timeout = 0) -> T | None:
+        """
+        Listen for the jobs queue, and fetch next priority job if available
         """
         raise NotImplementedError
     

@@ -1,35 +1,30 @@
 import asyncio
+import random
 
+from app_jobs.job_watch import JobWatch
+from app_jobs.job_worker import JobWorker
 from app_queue.redis_queue import jobs_queue
-from redis_client.utils import hset
 from schema import Job
 
 async def main():
-    first_job = Job(priority=1, max_retry_attempts=3, retry=True)
-    second_job = Job(priority=0, max_retry_attempts=1, retry=True)
-    third_job = Job(priority=2, max_retry_attempts=3, retry=True)
-    
+    first_job = Job(priority=1, max_retry_attempts=3, retry=True, task_name="SendEmail")    
     await jobs_queue.add_task(first_job)
     
-    await hset(first_job.id, first_job.model_dump())
-    await hset(second_job.id, second_job.model_dump())
-    await hset(third_job.id, third_job.model_dump())
+    watcher = JobWatch(queue=jobs_queue)
     
-    await jobs_queue.add_task(second_job)
-    await jobs_queue.add_task(third_job)
-    
-    print("Hello from py-scheduler!")
-    
-    print("Here are your jobs:")
-    jobs = await jobs_queue.list_jobs()
-    print(jobs)
-    
-    print("Next priority job")
-    next_job = await jobs_queue.peek_task()
-    print(f"Next job on the queue: {next_job}")
-    
-    popped_job = await jobs_queue.pop_task()
-    print(f"Popped job: {popped_job}")
+    async def send_email_task_dummy(*args, **kwargs):
+        print(f"Send email task: args: {args}, kwargs: {kwargs}")
+        random_chance = random.random()
+        await asyncio.sleep(5)
+        
+        if random_chance < 0.8:
+            raise RuntimeError("Failed to send email")
+        
+        print("Email is sent")
+        
+    worker = JobWorker(processor=send_email_task_dummy)
+        
+    await watcher.start(worker=worker)
     
     
     

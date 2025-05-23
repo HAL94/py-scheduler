@@ -1,6 +1,8 @@
 from typing import Sequence
 import redis.asyncio as redis
 
+from app_jobs.job_store import JobStore
+
 from .base_queue import BaseQueue
 from redis_client import redis_client
 from redis_client.utils import get_zrange_item, hgetall
@@ -11,7 +13,12 @@ class RedisQueue(BaseQueue[Job]):
     def __init__(self, redis_client: redis.Redis, name = "job_queue"):
         self.client = redis_client
         self.name = name
-    
+        self.storage = JobStore[Job]()
+        
+    async def _save_job_details(self, task: Job):
+        await self.storage.save_job(name=task.id, data=task)
+        
+        
     async def add_task(self, task: Job) -> None:
         score = task.priority
         key = task.id
@@ -19,6 +26,8 @@ class RedisQueue(BaseQueue[Job]):
         print(f"Adding job with id: {key} and score is: {score}")
         
         await self.client.zadd(self.name, { key: score })
+        
+        await self._save_job_details(task)
         
     async def peek_task(self) -> Job | None:
         next_priority_job = await self.client.zrevrange(self.name, start=0, end=0, withscores=True)
@@ -50,7 +59,25 @@ class RedisQueue(BaseQueue[Job]):
             return None
         
         return fetched_job
+    
+    async def wait_for_next_task(self, timeout = 0) -> Job | None:
+        priority_job = await self.client.bzpopmax(keys=self.name, timeout=timeout)
         
+        if not priority_job:
+            return None
+        
+        _, member, _ = priority_job
+        
+        id = member.decode()
+        
+        fetched_job: Job = await hgetall(name=id, return_model=Job)
+        
+        fetched_job.id = id
+        
+        if not fetched_job:
+            return None
+        
+        return fetched_job
 
     async def list_jobs(self, start=0, end=-1, withscores=True) -> Sequence[Job]:
         data = await self.client.zrevrange(self.name, start=start, end=end, withscores=withscores)
