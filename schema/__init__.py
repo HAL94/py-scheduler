@@ -93,3 +93,6 @@ class Job(BaseModel):
 class ZRangeItem(BaseModel):
     key: str
     score: Optional[float] = None
+
+
+__all__ = ["Job", "JobStatus", "ZRangeItem"]
