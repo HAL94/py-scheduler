@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from app_jobs.job_worker import JobWorker
+from jobs.job_worker import JobWorker
 from app_queue.base_queue import BaseQueue
 from redis_client.utils import hset
 from schema import Job, JobStatus

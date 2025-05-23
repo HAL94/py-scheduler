@@ -1,7 +1,7 @@
 from typing import Sequence
 import redis.asyncio as redis
 
-from app_jobs.job_store import RedisJobStore
+from jobs.redis_job_store import RedisJobStore
 
 from .base_queue import BaseQueue
 from redis_client import redis_client

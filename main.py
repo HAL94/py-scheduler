@@ -1,8 +1,8 @@
 import asyncio
 import random
 
-from app_jobs.job_watch import JobWatch
-from app_jobs.job_worker import JobWorker
+from jobs.job_watch import JobWatch
+from jobs.job_worker import JobWorker
 from app_queue.redis_queue import jobs_queue
 from schema import Job
 

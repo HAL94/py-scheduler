@@ -1,36 +1,11 @@
-import abc
-from typing import ClassVar, Generic, TypeVar
-import redis.asyncio as redis
-from pydantic import BaseModel
-
+from jobs.base_job_store import BaseJobStore
 from schema import Job
 
-T = TypeVar(name="T", bound=BaseModel)
 
-
-class JobStore(abc.ABC, Generic[T]):
-    __model__: ClassVar[T]
-
-    def __init__(self, client: redis.Redis):
-        self.client = client
-
-    @property
-    def _model(self) -> T:
-        return self.__model__
-
-    @abc.abstractmethod
-    async def save_job(self, name: str, data: T) -> None:
-        raise NotImplementedError
-        
-
-    @abc.abstractmethod
-    async def get_job(self, name: str) -> T | None:
-        raise NotImplementedError
-
-class RedisJobStore(JobStore[Job]):
+class RedisJobStore(BaseJobStore[Job]):
     __model__ = Job
 
-    async def save_job(self, name: str, data: T) -> None:
+    async def save_job(self, name: str, data: Job) -> None:
         """
         Save the job to the redis hash by given name with data of Job
 
