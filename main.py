@@ -1,7 +1,7 @@
 import asyncio
 
-from job_queue import jobs_queue
-from redis_client.utils import hgetall, hset
+from app_queue.redis_queue import jobs_queue
+from redis_client.utils import hset
 from schema import Job
 
 async def main():
@@ -21,16 +21,16 @@ async def main():
     print("Hello from py-scheduler!")
     
     print("Here are your jobs:")
-    jobs = await jobs_queue.list_jobs(start=0, end=-1, withscores=True)
+    jobs = await jobs_queue.list_jobs()
     print(jobs)
     
     print("Next priority job")
-    next_job = await jobs_queue.get_next_task()
+    next_job = await jobs_queue.peek_task()
     print(f"Next job on the queue: {next_job}")
     
-    parsed_job = await hgetall(next_job.key, Job)
+    popped_job = await jobs_queue.pop_task()
+    print(f"Popped job: {popped_job}")
     
-    print(f"parsed_job: {parsed_job}")
     
     
     

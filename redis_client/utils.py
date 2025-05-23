@@ -39,6 +39,5 @@ def get_zrange_item(item: Any):
         key, score = item
         return ZRangeItem(key=key.decode(), score=score)
     else:
-        print("ZrangeItem", item)
         key = item.decode()
         return ZRangeItem(key=key, score=None)
