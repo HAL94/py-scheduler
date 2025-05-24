@@ -9,32 +9,50 @@ from app_queue.redis_queue import jobs_queue
 from schema import Job
 
 
-def add_job(job: Job):
-    print(f"job is {job}")
-    if job.scheduled_at is not None and datetime.now() >= job.scheduled_at:
-        print("Should add the task now")
-    else:
-        print(f"Should add to a scheduled hash with expiry at: {job.scheduled_at}")
+def schedule_after(seconds=10):
+    return datetime.now() + timedelta(seconds=seconds)
+
 
 async def main():
-    first_job = Job(
+    job1 = Job(
         id=None,
-        priority=1,
+        priority=5,  # highest value, highest priority
         max_retry_attempts=3,
-        scheduled_at=datetime.now() + timedelta(seconds=10),
-        retry=True,
-        task_name="SendEmail",
-        args=["hello", "world"],
-        kwargs={"email": "james.brown@gmail.com"},
+        scheduled_at=schedule_after(seconds=10),
+        task_name="SendEmailDelayed",
+        args=["hello", "1st delayed"],
+        kwargs={"email": "job1delayed@notification.com"},
     )
-    add_job(job=first_job)    
-    
+
+    job2 = Job(
+        priority=2,
+        max_retry_attempts=2,
+        task_name="SendEmail",
+        args=["Hello", "2nd job"],
+        kwargs={"email": "job2@notification.com"},
+    )
+
+    job3 = Job(
+        priority=3,
+        max_retry_attempts=3,
+        task_name="SendEmail",
+        args=["Hello", "3rd job"],
+        kwargs={"email": "job3@notification.com"},
+    )
+
     jobs_queue.listen_for_expired_jobs()
 
-    await jobs_queue.add_task(first_job)
+    await jobs_queue.add_job(job1)
+    await jobs_queue.add_job(job2)
     
+    await asyncio.sleep(10)
+    
+    await jobs_queue.add_job(job3)
+
+    # let's see the console for which job will be popped first
     watcher = JobWatch(queue=jobs_queue)
 
+    # dummy task
     async def send_email_task_dummy(*args, **kwargs):
         print(f"Send email task: args: {args}, kwargs: {kwargs}")
         random_chance = random.random()

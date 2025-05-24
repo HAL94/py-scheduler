@@ -12,16 +12,25 @@ from redis_client.utils import get_zrange_item, hgetall
 from schema import Job, ZRangeItem
 
 
+"""
+Please enable keyspace notifications from Redis server using the following command in Redis-CLI:
+`redis-cli config set notify-keyspace-events KEA`
+
+KEA abbreviation
+`K for Keyspace, E for Expired, A for All events`
+"""
+
+
 class RedisQueue(BaseQueue[Job]):
     def __init__(self, redis_client: redis.Redis, name="job_queue"):
         self.client = redis_client
         self.name = name
-        self.storage = RedisJobStore(client=self.client)        
+        self.storage = RedisJobStore(client=self.client)
 
     async def _save_job_details(self, task: Job):
         await self.storage.save_job(name=task.id, data=task)
 
-    async def _add_scheduled_task(self, task: Job):
+    async def _add_scheduled_job(self, task: Job):
         key = f"{self.name}:scheduled:{task.id}"
         await self.storage.save_job(name=key, data=task)
 
@@ -35,38 +44,38 @@ class RedisQueue(BaseQueue[Job]):
     ):
         pubsub = self.client.pubsub()
 
-        async def run_task():
+        async def run_listener_taks():
             await pubsub.psubscribe("__keyevent@0__:expired")
             async for message in pubsub.listen():
                 if message and message["type"] == "pmessage":
                     expired_key = message["data"].decode("utf-8")
-                    job = await self.storage.get_job(expired_key.split(':')[2])
+                    job = await self.storage.get_job(expired_key.split(":")[2])
                     # print(f"job is expired: {job}")
                     if job is not None:
                         key = job.id
-                        score = job.priority                        
-                        await self.client.zadd(self.name, { key: score })
+                        score = job.priority
+                        await self.client.zadd(self.name, {key: score})
 
-        listener = asyncio.create_task(run_task())
-        
+        listener = asyncio.create_task(run_listener_taks())
+
         return listener
 
-    async def add_task(self, task: Job) -> None:
-        score = task.priority
-        key = task.id
+    async def add_job(self, job: Job) -> None:
+        score = job.priority
+        key = job.id
 
         print(f"Adding job with id: {key} and score is: {score}")
 
-        if datetime.now() < task.scheduled_at:
-            await self._add_scheduled_task(task)
+        if datetime.now() < job.scheduled_at:
+            await self._add_scheduled_job(job)
         else:
             # add it now to active queue
             await self.client.zadd(self.name, {key: score})
 
         # always save job regardless it will run now or later
-        await self._save_job_details(task)
+        await self._save_job_details(job)
 
-    async def peek_task(self) -> Job | None:
+    async def peek_job(self) -> Job | None:
         next_priority_job = await self.client.zrevrange(
             self.name, start=0, end=0, withscores=True
         )
@@ -83,7 +92,7 @@ class RedisQueue(BaseQueue[Job]):
 
         return fetched_job
 
-    async def pop_task(self) -> Job | None:
+    async def pop_job(self) -> Job | None:
         priority_job: list[tuple[str, int]] = await self.client.zpopmax(name=self.name)
 
         if priority_job is None or len(priority_job) <= 0:  # Queue is empty
@@ -98,7 +107,7 @@ class RedisQueue(BaseQueue[Job]):
 
         return fetched_job
 
-    async def wait_for_next_task(self, timeout=0) -> Job | None:
+    async def wait_for_next_job(self, timeout=0) -> Job | None:
         priority_job = await self.client.bzpopmax(keys=self.name, timeout=timeout)
 
         if not priority_job:
@@ -109,12 +118,11 @@ class RedisQueue(BaseQueue[Job]):
         id = member.decode()
 
         fetched_job: Job = await self.storage.get_job(name=id)
-        
+
         if not fetched_job:
             return None
 
         fetched_job.id = id
-
 
         return fetched_job
 

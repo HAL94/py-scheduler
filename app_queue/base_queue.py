@@ -13,7 +13,7 @@ class BaseQueue(abc.ABC, Generic[T]):
     """
     
     @abc.abstractmethod
-    async def add_task(self, task: T) -> None:
+    async def add_job(self, task: T) -> None:
         """
         Adds a new job to the queue.
 
@@ -23,20 +23,20 @@ class BaseQueue(abc.ABC, Generic[T]):
         raise NotImplementedError
     
     @abc.abstractmethod
-    async def peek_task(self) -> T:
+    async def peek_job(self) -> T:
         """
         View the next task in the queue, without removing it        
         """
         raise NotImplementedError
     
     @abc.abstractmethod
-    async def pop_task(self) -> T:
+    async def pop_job(self) -> T:
         """
         Pop the next task in the queue, it will be removed
         """
         raise NotImplementedError
     
-    async def wait_for_next_task(self, timeout = 0) -> T | None:
+    async def wait_for_next_job(self, timeout = 0) -> T | None:
         """
         Listen for the jobs queue, and fetch next priority job if available
         """
