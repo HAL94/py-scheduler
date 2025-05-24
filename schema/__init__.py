@@ -3,7 +3,7 @@ import enum
 import json
 from typing import Annotated, Optional
 import uuid
-from pydantic import BaseModel, Field, WrapValidator, field_serializer
+from pydantic import BaseModel, Field, WrapValidator, field_serializer, field_validator
 
 
 class JobStatus(str, enum.Enum):
@@ -28,7 +28,7 @@ def validate_funcargs(value, handler):
 JobArgs = Annotated[Optional[list | dict], WrapValidator(validate_funcargs)]
 
 class Job(BaseModel):
-    id: str = Field(
+    id: Optional[str] = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique identifier for the item (UUID string format)",
     )
@@ -44,6 +44,12 @@ class Job(BaseModel):
     status: JobStatus = JobStatus.IDLE
     args: JobArgs = []
     kwargs: JobArgs = {}
+    
+    @field_validator('id', mode="after")
+    def set_id_if_none(cls, v):
+        if v is None:
+            return str(uuid.uuid4())
+        return v
 
     @field_serializer("created_at")
     def serialize_created_at(self, created_at: datetime):
