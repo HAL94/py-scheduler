@@ -25,6 +25,7 @@ async def main():
     )
 
     job2 = Job(
+        id=None,
         priority=2,
         max_retry_attempts=2,
         task_name="SendEmail",
@@ -33,21 +34,42 @@ async def main():
     )
 
     job3 = Job(
+        id=None,
         priority=3,
         max_retry_attempts=3,
         task_name="SendEmail",
         args=["Hello", "3rd job"],
         kwargs={"email": "job3@notification.com"},
     )
+    
+    job4 = Job(
+        id=None,
+        priority=4,
+        max_retry_attempts=3,
+        task_name="SendEmail",
+        args=["Hello", "4rd job"],
+        kwargs={"email": "job4@notification.com"},
+    )
+    
+    job5 = Job(
+        id=None,
+        priority=4,
+        max_retry_attempts=3,
+        task_name="SendEmail",
+        args=["Hello", "5rd job"],
+        kwargs={"email": "job5@notification.com"},
+    )
 
     jobs_queue.listen_for_expired_jobs()
 
     await jobs_queue.add_job(job1)
     await jobs_queue.add_job(job2)
-    
-    await asyncio.sleep(10)
-    
     await jobs_queue.add_job(job3)
+    await jobs_queue.add_job(job4)
+    await jobs_queue.add_job(job5)
+    
+    # await asyncio.sleep(10)
+    
 
     # let's see the console for which job will be popped first
     watcher = JobWatch(queue=jobs_queue)
@@ -65,7 +87,7 @@ async def main():
 
     worker = JobWorker(processor=send_email_task_dummy)
 
-    await watcher.start(worker=worker)
+    await watcher.start(worker=worker, number_of_workers=2)
 
 
 if __name__ == "__main__":

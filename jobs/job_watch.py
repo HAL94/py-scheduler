@@ -24,28 +24,30 @@ class JobWatch:
             job.failed_at = datetime.now()
 
         await hset(job.id, job.model_dump())
-
-    async def start(self, worker: JobWorker[Job]):
+    
+    async def _consume_jobs(self, worker: JobWorker[Job]):
         while True:
-            print("\n\nListening for jobs...\n\n")
+            # print("\n\nListening for jobs...\n\n")
             job: Job | None = await self.queue.wait_for_next_job()
             if job is None:
                 # delay for sometime before listening to the queue again
                 await asyncio.sleep(15)
                 print("Delay is done")
             else:
-                print(f"\n\nAttempting job: {job.task_name}")
+                print(f"Attempting job: {job.id}")
                 await self._update_job_status(job, JobStatus.PENDING)
                 try:
                     await worker.processor(*job.args, **job.kwargs)
 
                     await self._update_job_status(job, JobStatus.COMPLETED)
+                    
+                    print(f"Job {job.id} is finished")
 
                 except Exception as e:
                     print(f"Failed to execute job with id: {job.id}. Message: {e}")
 
                     if job.current_attempts >= job.max_retry_attempts:
-                        print("\n\nMaximum attempts reached. Updating status to Fail")
+                        print(f"\n\nMaximum attempts reached. Updating {job.id} status to Failed")
                         await self._update_job_status(job, JobStatus.FAILED)
                     else:
                         job.current_attempts += 1
@@ -54,3 +56,12 @@ class JobWatch:
                         delay = job.current_attempts**2
                         await asyncio.sleep(delay)
                         await self.queue.add_job(job)
+        
+
+    async def start(self, *, worker: JobWorker[Job], number_of_workers = 1):
+        tasks = []
+        for _ in range(number_of_workers):
+            tasks.append(asyncio.create_task(self._consume_jobs(worker=worker)))
+        
+        await asyncio.gather(*tasks, return_exceptions=True)
+        
